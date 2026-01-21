@@ -20,9 +20,13 @@ export default function Cart() {
 
   const restaurant = currentRestaurantId ? getRestaurantById(currentRestaurantId) : null;
   const distance = restaurant?.distance || 0;
+  
+  // Check if customer and restaurant are in the same village
+  const isSameVillage = currentLocation?.id === restaurant?.locationId;
+  
   const subtotal = getSubtotal();
-  const deliveryFee = getDeliveryFee(distance);
-  const total = getTotal(distance);
+  const deliveryFee = getDeliveryFee(distance, isSameVillage);
+  const total = getTotal(distance, isSameVillage);
 
   if (items.length === 0) {
     return (
