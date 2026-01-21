@@ -11,8 +11,8 @@ interface CartContextType {
   getItemQuantity: (itemId: string) => number;
   getTotalItems: () => number;
   getSubtotal: () => number;
-  getDeliveryFee: (distance: number) => DeliveryFee;
-  getTotal: (distance: number) => number;
+  getDeliveryFee: (distance: number, isSameVillage?: boolean) => DeliveryFee;
+  getTotal: (distance: number, isSameVillage?: boolean) => number;
   currentRestaurantId: string | null;
 }
 
@@ -117,17 +117,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
     return items.reduce((sum, item) => sum + (item.foodItem.price * item.quantity), 0);
   }, [items]);
 
-  const getDeliveryFee = useCallback((distance: number): DeliveryFee => {
+  const getDeliveryFee = useCallback((distance: number, isSameVillage: boolean = true): DeliveryFee => {
     const totalItems = getTotalItems();
     let baseFee = BASE_DELIVERY_FEE;
     
-    // Distance-based fee
-    const distanceFee = distance > 0 ? Math.round(distance * PER_KM_RATE) : 0;
+    // Distance-based fee ONLY for different village deliveries
+    // Same village = no per-km charges
+    const distanceFee = !isSameVillage && distance > 0 ? Math.round(distance * PER_KM_RATE) : 0;
     
-    // Multi-item discount
+    // Multi-item discount (applies when 2+ items from same restaurant)
     let itemDiscount = 0;
     if (totalItems >= 2) {
-      // Normally would be BASE_FEE * totalItems, but we give discount
       itemDiscount = MULTI_ITEM_DISCOUNT;
     }
 
@@ -139,9 +139,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
     };
   }, [getTotalItems]);
 
-  const getTotal = useCallback((distance: number) => {
+  const getTotal = useCallback((distance: number, isSameVillage: boolean = true) => {
     const subtotal = getSubtotal();
-    const deliveryFee = getDeliveryFee(distance);
+    const deliveryFee = getDeliveryFee(distance, isSameVillage);
     return subtotal + deliveryFee.total;
   }, [getSubtotal, getDeliveryFee]);
 
