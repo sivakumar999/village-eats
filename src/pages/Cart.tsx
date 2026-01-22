@@ -221,9 +221,11 @@ export default function Cart() {
       {/* Checkout Button */}
       <div className="fixed bottom-0 left-0 right-0 bg-card border-t border-border p-4">
         <div className="container mx-auto max-w-lg">
-          <Button variant="hero" size="xl" className="w-full">
-            Proceed to Pay • ₹{total}
-          </Button>
+          <Link to="/checkout">
+            <Button variant="hero" size="xl" className="w-full">
+              Proceed to Pay • ₹{total}
+            </Button>
+          </Link>
         </div>
       </div>
     </div>

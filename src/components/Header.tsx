@@ -1,7 +1,8 @@
-import { MapPin, ShoppingCart, Search, ChevronDown, User } from 'lucide-react';
+import { MapPin, ShoppingCart, Search, ChevronDown, User, ClipboardList } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
 import { useLocation } from '@/context/LocationContext';
+import { useOrders } from '@/context/OrderContext';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -14,8 +15,10 @@ import {
 export function Header() {
   const { getTotalItems } = useCart();
   const { currentLocation, setCurrentLocation, availableLocations } = useLocation();
+  const { orders } = useOrders();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const totalItems = getTotalItems();
+  const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length;
 
   return (
     <header className="sticky top-0 z-50 bg-card/95 backdrop-blur-md border-b border-border shadow-sm">
@@ -82,6 +85,18 @@ export function Header() {
             >
               <Search className="h-5 w-5" />
             </Button>
+
+            {/* My Orders */}
+            <Link to="/my-orders">
+              <Button variant="ghost" size="icon" className="relative">
+                <ClipboardList className="h-5 w-5" />
+                {activeOrders > 0 && (
+                  <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-accent text-accent-foreground text-xs font-bold flex items-center justify-center">
+                    {activeOrders}
+                  </span>
+                )}
+              </Button>
+            </Link>
 
             {/* User */}
             <Button variant="ghost" size="icon" className="hidden sm:flex">
