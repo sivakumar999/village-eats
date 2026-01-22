@@ -1,73 +1,290 @@
-# Welcome to your Lovable project
+# 🍔 Village Eats - Food Delivery Application
 
-## Project info
+A village-focused food delivery platform with separate modules for Customers, Admins, and Delivery Agents.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## 🚀 Quick Start
 
-## How can I edit this code?
+### Frontend (React)
 
-There are several ways of editing your application.
+```bash
+# Install dependencies
+npm install
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Start development server
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app runs at `http://localhost:5173`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+---
 
-**Use GitHub Codespaces**
+## 📱 Application Modules
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+| Module | URL | Description |
+|--------|-----|-------------|
+| **Customer** | `/` | Browse restaurants, place orders, track delivery |
+| **Admin** | `/admin` | Manage locations, restaurants, agents, orders |
+| **Agent** | `/agent` | Accept orders, view earnings, manage deliveries |
 
-## What technologies are used for this project?
+---
 
-This project is built with:
+## 🗄️ Database Setup (MSSQL)
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Prerequisites
+- Microsoft SQL Server 2019+
+- SQL Server Management Studio (SSMS)
 
-## How can I deploy this project?
+### Installation Steps
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+1. **Create Database**
+```sql
+CREATE DATABASE VillageEats;
+GO
+USE VillageEats;
+```
 
-## Can I connect a custom domain to my Lovable project?
+2. **Run Schema Script**
+```bash
+# Execute in SSMS or via sqlcmd
+sqlcmd -S localhost -d VillageEats -i database/001_create_schema.sql
+```
 
-Yes, you can!
+3. **Load Seed Data**
+```bash
+sqlcmd -S localhost -d VillageEats -i database/002_seed_data.sql
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+4. **Create Stored Procedures**
+```bash
+sqlcmd -S localhost -d VillageEats -i database/003_stored_procedures.sql
+```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+### Database Scripts Location
+```
+database/
+├── 001_create_schema.sql    # Tables, indexes, constraints
+├── 002_seed_data.sql        # Sample locations, restaurants, menu items
+├── 003_stored_procedures.sql # Order placement, agent assignment
+└── README.md                # Detailed database documentation
+```
+
+---
+
+## 🔧 Backend Setup (Node.js/Express)
+
+### Create Backend Project
+
+```bash
+mkdir village-eats-api
+cd village-eats-api
+npm init -y
+npm install express mssql jsonwebtoken bcrypt cors dotenv
+```
+
+### Environment Configuration
+
+Create `.env` file:
+```env
+# Server
+PORT=3001
+NODE_ENV=development
+
+# Database
+DB_SERVER=localhost
+DB_NAME=VillageEats
+DB_USER=sa
+DB_PASSWORD=YourPassword123
+
+# Authentication
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+JWT_EXPIRES_IN=24h
+
+# Business Rules (configurable)
+DELIVERY_BASE_FEE=20
+DELIVERY_PER_KM_RATE=9
+AGENT_BASE_EARNING=20
+MULTI_ITEM_DISCOUNT=10
+```
+
+### Basic Server Structure
+
+```javascript
+// server.js
+const express = require('express');
+const cors = require('cors');
+const sql = require('mssql');
+require('dotenv').config();
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// Database config
+const dbConfig = {
+  server: process.env.DB_SERVER,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  options: {
+    encrypt: false,
+    trustServerCertificate: true
+  }
+};
+
+// Connect to database
+sql.connect(dbConfig).then(() => {
+  console.log('Connected to MSSQL');
+}).catch(err => {
+  console.error('Database connection failed:', err);
+});
+
+// Routes
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/locations', require('./routes/locations'));
+app.use('/api/restaurants', require('./routes/restaurants'));
+app.use('/api/orders', require('./routes/orders'));
+app.use('/api/agents', require('./routes/agents'));
+app.use('/api/admin', require('./routes/admin'));
+
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
+```
+
+---
+
+## 💰 Business Logic
+
+### Delivery Fee Calculation
+
+| Scenario | Formula |
+|----------|---------|
+| Same Village | ₹20 flat (no per-km charge) |
+| Different Village | ₹20 + (Distance × ₹9/km) |
+| Multi-item (2+) | ₹10 discount on delivery |
+
+### Agent Earnings
+
+| Delivery Type | Agent Earns | Platform Fee |
+|---------------|-------------|--------------|
+| Single item, same village | ₹20 | ₹0 |
+| Multi-item (discounted) | ₹25 | ₹5 |
+| Different village | Full delivery fee | ₹0 |
+
+---
+
+## 🎨 Asset Structure
+
+```
+src/assets/
+├── food/                    # Food item images
+│   ├── butter-chicken.jpg
+│   ├── masala-dosa.jpg
+│   └── ...
+└── restaurants/             # Restaurant images
+    ├── spice-garden.jpg
+    ├── royal-dhaba.jpg
+    └── ...
+```
+
+---
+
+## 🔐 Authentication
+
+- JWT-based with 24-hour expiry
+- Roles: `CUSTOMER`, `ADMIN`, `AGENT`
+- Password hashing with bcrypt
+
+### Auth Header
+```
+Authorization: Bearer <token>
+```
+
+---
+
+## 📋 API Endpoints Reference
+
+### Authentication
+```
+POST /api/auth/register    - Customer registration
+POST /api/auth/login       - Login (all roles)
+GET  /api/auth/profile     - Get current user
+```
+
+### Locations
+```
+GET  /api/locations        - List all locations
+POST /api/locations        - Create location (Admin)
+```
+
+### Restaurants
+```
+GET  /api/restaurants                  - List restaurants
+GET  /api/restaurants/:id              - Restaurant details
+GET  /api/restaurants/:id/menu         - Menu items
+POST /api/restaurants                  - Create (Admin)
+```
+
+### Orders
+```
+POST /api/orders           - Place order
+GET  /api/orders/:id       - Order details
+GET  /api/orders/track/:id - Live tracking
+PUT  /api/orders/:id/status - Update status
+```
+
+### Agent
+```
+GET  /api/agent/orders     - Available orders
+POST /api/agent/accept/:id - Accept order
+GET  /api/agent/earnings   - Earnings summary
+```
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run tests
+npm run test
+
+# Run with coverage
+npm run test:coverage
+```
+
+---
+
+## 📦 Tech Stack
+
+### Frontend
+- React 18 + TypeScript
+- Tailwind CSS + shadcn/ui
+- React Router DOM
+- TanStack Query
+
+### Backend (to implement)
+- Node.js + Express
+- MSSQL with mssql package
+- JWT Authentication
+- bcrypt for password hashing
+
+---
+
+## 🚧 Development Roadmap
+
+- [x] Customer UI - Browse, Cart, Checkout
+- [x] Admin Dashboard - Locations, Restaurants, Menu, Agents, Orders
+- [x] Agent Portal - Orders, Earnings
+- [x] Order Tracking UI - Real-time status updates
+- [x] Database Schema - MSSQL scripts
+- [ ] Backend API - Express.js implementation
+- [ ] Real Authentication - JWT flow
+- [ ] Live Tracking - WebSocket integration
+- [ ] Payment Gateway - Stripe/Razorpay
+
+---
+
+## 📄 License
+
+MIT License - Built for learning and demonstration purposes.

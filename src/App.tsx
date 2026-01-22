@@ -5,9 +5,13 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { CartProvider } from "@/context/CartContext";
 import { LocationProvider } from "@/context/LocationContext";
+import { OrderProvider } from "@/context/OrderContext";
 import Index from "./pages/Index";
 import RestaurantDetail from "./pages/RestaurantDetail";
 import Cart from "./pages/Cart";
+import Checkout from "./pages/Checkout";
+import OrderStatus from "./pages/OrderStatus";
+import MyOrders from "./pages/MyOrders";
 import NotFound from "./pages/NotFound";
 // Admin
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -31,36 +35,41 @@ const App = () => (
     <TooltipProvider>
       <LocationProvider>
         <CartProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              {/* Customer */}
-              <Route path="/" element={<Index />} />
-              <Route path="/restaurant/:id" element={<RestaurantDetail />} />
-              <Route path="/cart" element={<Cart />} />
-              
-              {/* Admin */}
-              <Route path="/admin" element={<AdminLayout />}>
-                <Route index element={<AdminDashboard />} />
-                <Route path="locations" element={<AdminLocations />} />
-                <Route path="restaurants" element={<AdminRestaurants />} />
-                <Route path="menu-items" element={<AdminMenuItems />} />
-                <Route path="agents" element={<AdminAgents />} />
-                <Route path="orders" element={<AdminOrders />} />
-                <Route path="settings" element={<AdminSettings />} />
-              </Route>
-              
-              {/* Agent */}
-              <Route path="/agent" element={<AgentLayout />}>
-                <Route index element={<AgentDashboard />} />
-                <Route path="orders" element={<AgentOrders />} />
-                <Route path="earnings" element={<AgentEarnings />} />
-              </Route>
-              
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
+          <OrderProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                {/* Customer */}
+                <Route path="/" element={<Index />} />
+                <Route path="/restaurant/:id" element={<RestaurantDetail />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={<Checkout />} />
+                <Route path="/order/:orderId" element={<OrderStatus />} />
+                <Route path="/my-orders" element={<MyOrders />} />
+                
+                {/* Admin */}
+                <Route path="/admin" element={<AdminLayout />}>
+                  <Route index element={<AdminDashboard />} />
+                  <Route path="locations" element={<AdminLocations />} />
+                  <Route path="restaurants" element={<AdminRestaurants />} />
+                  <Route path="menu-items" element={<AdminMenuItems />} />
+                  <Route path="agents" element={<AdminAgents />} />
+                  <Route path="orders" element={<AdminOrders />} />
+                  <Route path="settings" element={<AdminSettings />} />
+                </Route>
+                
+                {/* Agent */}
+                <Route path="/agent" element={<AgentLayout />}>
+                  <Route index element={<AgentDashboard />} />
+                  <Route path="orders" element={<AgentOrders />} />
+                  <Route path="earnings" element={<AgentEarnings />} />
+                </Route>
+                
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </OrderProvider>
         </CartProvider>
       </LocationProvider>
     </TooltipProvider>
