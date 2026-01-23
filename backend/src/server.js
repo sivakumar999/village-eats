@@ -1,8 +1,10 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const http = require('http');
 const { getPool, closePool } = require('./config/database');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
+const { setupWebSocket } = require('./websocket');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -13,7 +15,11 @@ const agentRoutes = require('./routes/agents');
 const adminRoutes = require('./routes/admin');
 
 const app = express();
+const server = http.createServer(app);
 const PORT = process.env.PORT || 3001;
+
+// Setup WebSocket
+const wss = setupWebSocket(server);
 
 // Middleware
 app.use(cors({
@@ -31,7 +37,11 @@ app.use((req, res, next) => {
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString(),
+    websocket: wss.clients.size + ' connected'
+  });
 });
 
 // API Routes
@@ -52,7 +62,7 @@ const startServer = async () => {
     // Connect to database
     await getPool();
     
-    app.listen(PORT, () => {
+    server.listen(PORT, () => {
       console.log(`
 ╔════════════════════════════════════════════════╗
 ║     🍽️  Village Eats API Server                ║
@@ -61,6 +71,7 @@ const startServer = async () => {
 ║  Port:      ${PORT}                               ║
 ║  Mode:      ${process.env.NODE_ENV || 'development'}                       ║
 ║  Database:  Connected                          ║
+║  WebSocket: Enabled                            ║
 ╚════════════════════════════════════════════════╝
       `);
     });
@@ -73,12 +84,14 @@ const startServer = async () => {
 // Graceful shutdown
 process.on('SIGINT', async () => {
   console.log('\nShutting down gracefully...');
+  wss.close();
   await closePool();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('\nShutting down gracefully...');
+  wss.close();
   await closePool();
   process.exit(0);
 });
