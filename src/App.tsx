@@ -16,6 +16,7 @@ import OrderStatus from "./pages/OrderStatus";
 import MyOrders from "./pages/MyOrders";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import CustomerDashboard from "./pages/CustomerDashboard";
 import NotFound from "./pages/NotFound";
 // Admin
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -68,6 +69,11 @@ const App = () => (
                   <Route path="/my-orders" element={
                     <ProtectedRoute roles={['CUSTOMER']}>
                       <MyOrders />
+                    </ProtectedRoute>
+                  } />
+                  <Route path="/dashboard" element={
+                    <ProtectedRoute roles={['CUSTOMER']}>
+                      <CustomerDashboard />
                     </ProtectedRoute>
                   } />
                   
