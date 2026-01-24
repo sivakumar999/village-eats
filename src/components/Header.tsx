@@ -1,14 +1,16 @@
-import { MapPin, ShoppingCart, Search, ChevronDown, User, ClipboardList } from 'lucide-react';
+import { MapPin, ShoppingCart, Search, ChevronDown, User, ClipboardList, LogIn, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCart } from '@/context/CartContext';
 import { useLocation } from '@/context/LocationContext';
 import { useOrders } from '@/context/OrderContext';
+import { useAuth } from '@/context/AuthContext';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
@@ -16,6 +18,7 @@ export function Header() {
   const { getTotalItems } = useCart();
   const { currentLocation, setCurrentLocation, availableLocations } = useLocation();
   const { orders } = useOrders();
+  const { user, isAuthenticated, logout } = useAuth();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const totalItems = getTotalItems();
   const activeOrders = orders.filter(o => !['delivered', 'cancelled'].includes(o.status)).length;
@@ -86,22 +89,74 @@ export function Header() {
               <Search className="h-5 w-5" />
             </Button>
 
-            {/* My Orders */}
-            <Link to="/my-orders">
-              <Button variant="ghost" size="icon" className="relative">
-                <ClipboardList className="h-5 w-5" />
-                {activeOrders > 0 && (
-                  <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-accent text-accent-foreground text-xs font-bold flex items-center justify-center">
-                    {activeOrders}
-                  </span>
-                )}
-              </Button>
-            </Link>
+            {/* My Orders - only show when authenticated */}
+            {isAuthenticated && (
+              <Link to="/my-orders">
+                <Button variant="ghost" size="icon" className="relative">
+                  <ClipboardList className="h-5 w-5" />
+                  {activeOrders > 0 && (
+                    <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-accent text-accent-foreground text-xs font-bold flex items-center justify-center">
+                      {activeOrders}
+                    </span>
+                  )}
+                </Button>
+              </Link>
+            )}
 
-            {/* User */}
-            <Button variant="ghost" size="icon" className="hidden sm:flex">
-              <User className="h-5 w-5" />
-            </Button>
+            {/* User Menu / Auth Buttons */}
+            {isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56 bg-card border border-border z-50">
+                  <div className="px-3 py-2">
+                    <p className="font-medium text-foreground truncate">{user?.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{user?.email}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link to="/dashboard" className="flex items-center gap-2">
+                      <User className="h-4 w-4" />
+                      My Dashboard
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="cursor-pointer">
+                    <Link to="/my-orders" className="flex items-center gap-2">
+                      <ClipboardList className="h-4 w-4" />
+                      My Orders
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem 
+                    onClick={logout}
+                    className="cursor-pointer text-destructive focus:text-destructive"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Sign Out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Link to="/login">
+                  <Button variant="ghost" size="sm" className="hidden sm:flex">
+                    <LogIn className="h-4 w-4 mr-2" />
+                    Sign In
+                  </Button>
+                  <Button variant="ghost" size="icon" className="sm:hidden">
+                    <LogIn className="h-5 w-5" />
+                  </Button>
+                </Link>
+                <Link to="/register" className="hidden sm:block">
+                  <Button size="sm">
+                    Sign Up
+                  </Button>
+                </Link>
+              </div>
+            )}
 
             {/* Cart */}
             <Link to="/cart">
