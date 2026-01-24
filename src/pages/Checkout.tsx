@@ -1,43 +1,130 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MapPin, CreditCard, Banknote, FileText, Loader2 } from 'lucide-react';
+import { ArrowLeft, MapPin, CreditCard, Banknote, FileText, Loader2, User, Phone, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useCart } from '@/context/CartContext';
 import { useLocation } from '@/context/LocationContext';
 import { useOrders } from '@/context/OrderContext';
+import { useAuth } from '@/context/AuthContext';
 import { getRestaurantById } from '@/data/mockData';
 import { cn } from '@/lib/utils';
 
 type PaymentMode = 'COD' | 'ONLINE';
 
+interface DeliveryDetails {
+  name: string;
+  phone: string;
+  locationId: string;
+  address: string;
+}
+
 export default function Checkout() {
   const navigate = useNavigate();
   const { items, getSubtotal, getDeliveryFee, getTotal, currentRestaurantId, clearCart } = useCart();
-  const { currentLocation } = useLocation();
+  const { currentLocation, availableLocations, setCurrentLocation } = useLocation();
   const { placeOrder } = useOrders();
+  const { user } = useAuth();
   
   const [paymentMode, setPaymentMode] = useState<PaymentMode>('COD');
   const [customerNotes, setCustomerNotes] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Delivery details form - pre-fill from user if available
+  const [deliveryDetails, setDeliveryDetails] = useState<DeliveryDetails>({
+    name: '',
+    phone: '',
+    locationId: '',
+    address: '',
+  });
+  const [errors, setErrors] = useState<Partial<DeliveryDetails>>({});
+
+  // Pre-fill form with user data
+  useEffect(() => {
+    if (user) {
+      setDeliveryDetails(prev => ({
+        ...prev,
+        name: prev.name || user.name || '',
+        phone: prev.phone || user.phone || '',
+        locationId: prev.locationId || user.locationId || currentLocation?.id || '',
+        address: prev.address || user.address || '',
+      }));
+    } else if (currentLocation) {
+      setDeliveryDetails(prev => ({
+        ...prev,
+        locationId: prev.locationId || currentLocation.id,
+      }));
+    }
+  }, [user, currentLocation]);
 
   const restaurant = currentRestaurantId ? getRestaurantById(currentRestaurantId) : null;
   const distance = restaurant?.distance || 0;
-  const isSameVillage = currentLocation?.id === restaurant?.locationId;
+  const selectedLocation = availableLocations.find(l => l.id === deliveryDetails.locationId);
+  const isSameVillage = selectedLocation?.id === restaurant?.locationId;
   
   const subtotal = getSubtotal();
   const deliveryFee = getDeliveryFee(distance, isSameVillage);
   const total = getTotal(distance, isSameVillage);
 
+  const handleDeliveryChange = (field: keyof DeliveryDetails, value: string) => {
+    setDeliveryDetails(prev => ({ ...prev, [field]: value }));
+    setErrors(prev => ({ ...prev, [field]: undefined }));
+    
+    // Update location context if location changed
+    if (field === 'locationId') {
+      const newLocation = availableLocations.find(l => l.id === value);
+      if (newLocation) {
+        setCurrentLocation(newLocation);
+      }
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Partial<DeliveryDetails> = {};
+    
+    if (!deliveryDetails.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
+    
+    if (!deliveryDetails.phone.trim()) {
+      newErrors.phone = 'Phone number is required';
+    } else if (!/^[6-9]\d{9}$/.test(deliveryDetails.phone.trim())) {
+      newErrors.phone = 'Enter a valid 10-digit mobile number';
+    }
+    
+    if (!deliveryDetails.locationId) {
+      newErrors.locationId = 'Please select delivery location';
+    }
+    
+    if (!deliveryDetails.address.trim()) {
+      newErrors.address = 'Delivery address is required';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handlePlaceOrder = async () => {
     if (items.length === 0) return;
+    
+    if (!validateForm()) {
+      return;
+    }
     
     setIsProcessing(true);
     
     // Simulate payment processing
     await new Promise(resolve => setTimeout(resolve, 1500));
     
-    const order = placeOrder(items, paymentMode, customerNotes || undefined);
+    // Include delivery details in order
+    const orderNotes = customerNotes 
+      ? `Deliver to: ${deliveryDetails.name} (${deliveryDetails.phone})\nAddress: ${deliveryDetails.address}\n\nNotes: ${customerNotes}`
+      : `Deliver to: ${deliveryDetails.name} (${deliveryDetails.phone})\nAddress: ${deliveryDetails.address}`;
+    
+    const order = placeOrder(items, paymentMode, orderNotes);
     clearCart();
     
     navigate(`/order/${order.id}`);
@@ -63,24 +150,105 @@ export default function Checkout() {
       </header>
 
       <main className="container mx-auto px-4 py-6 max-w-lg">
-        {/* Delivery Address */}
+        {/* Delivery Details Form */}
         <section className="bg-card rounded-xl p-4 shadow-card mb-4">
-          <div className="flex items-start gap-3">
+          <div className="flex items-center gap-2 mb-4">
             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <MapPin className="h-5 w-5 text-primary" />
             </div>
-            <div className="flex-1">
-              <h3 className="font-semibold text-foreground">Deliver to</h3>
-              <p className="text-sm text-muted-foreground mt-1">{currentLocation?.name}</p>
+            <div>
+              <h3 className="font-semibold text-foreground">Delivery Details</h3>
+              <p className="text-xs text-muted-foreground">Who will receive this order?</p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            {/* Receiver Name */}
+            <div className="space-y-2">
+              <Label htmlFor="name" className="text-sm">
+                <User className="inline h-3 w-3 mr-1" />
+                Receiver Name *
+              </Label>
+              <Input
+                id="name"
+                placeholder="Enter receiver's name"
+                value={deliveryDetails.name}
+                onChange={(e) => handleDeliveryChange('name', e.target.value)}
+                className={cn(errors.name && "border-destructive")}
+              />
+              {errors.name && (
+                <p className="text-xs text-destructive">{errors.name}</p>
+              )}
+            </div>
+
+            {/* Phone Number */}
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-sm">
+                <Phone className="inline h-3 w-3 mr-1" />
+                Mobile Number *
+              </Label>
+              <Input
+                id="phone"
+                type="tel"
+                placeholder="10-digit mobile number"
+                value={deliveryDetails.phone}
+                onChange={(e) => handleDeliveryChange('phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                className={cn(errors.phone && "border-destructive")}
+              />
+              {errors.phone && (
+                <p className="text-xs text-destructive">{errors.phone}</p>
+              )}
+            </div>
+
+            {/* Delivery Location */}
+            <div className="space-y-2">
+              <Label htmlFor="location" className="text-sm">
+                <MapPin className="inline h-3 w-3 mr-1" />
+                Delivery Village *
+              </Label>
+              <Select
+                value={deliveryDetails.locationId}
+                onValueChange={(value) => handleDeliveryChange('locationId', value)}
+              >
+                <SelectTrigger className={cn(errors.locationId && "border-destructive")}>
+                  <SelectValue placeholder="Select delivery village" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableLocations.map((location) => (
+                    <SelectItem key={location.id} value={location.id}>
+                      {location.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.locationId && (
+                <p className="text-xs text-destructive">{errors.locationId}</p>
+              )}
               {isSameVillage && (
-                <span className="inline-block mt-2 px-2 py-0.5 bg-accent/20 text-accent-foreground text-xs rounded-full">
+                <span className="inline-block px-2 py-0.5 bg-accent/20 text-accent-foreground text-xs rounded-full">
                   Same Village - No Distance Fee!
                 </span>
               )}
             </div>
-            <Button variant="outline" size="sm">
-              Change
-            </Button>
+
+            {/* Detailed Address */}
+            <div className="space-y-2">
+              <Label htmlFor="address" className="text-sm">
+                <Home className="inline h-3 w-3 mr-1" />
+                Detailed Address *
+              </Label>
+              <Textarea
+                id="address"
+                placeholder="House/Flat No., Street, Landmark, etc."
+                value={deliveryDetails.address}
+                onChange={(e) => handleDeliveryChange('address', e.target.value)}
+                className={cn("resize-none", errors.address && "border-destructive")}
+                rows={2}
+              />
+              {errors.address && (
+                <p className="text-xs text-destructive">{errors.address}</p>
+              )}
+            </div>
           </div>
         </section>
 
