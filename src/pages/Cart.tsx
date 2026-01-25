@@ -1,9 +1,18 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Minus, Plus, Trash2, MapPin, ShoppingBag } from 'lucide-react';
+import { ArrowLeft, Minus, Plus, Trash2, MapPin, ShoppingBag, Edit2, Check, ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useCart } from '@/context/CartContext';
 import { useLocation } from '@/context/LocationContext';
 import { getRestaurantById } from '@/data/mockData';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function Cart() {
   const { 
@@ -16,7 +25,11 @@ export default function Cart() {
     getTotal,
     currentRestaurantId 
   } = useCart();
-  const { currentLocation } = useLocation();
+  const { currentLocation, setCurrentLocation, availableLocations } = useLocation();
+  
+  const [deliveryAddress, setDeliveryAddress] = useState('');
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [isChangingLocation, setIsChangingLocation] = useState(false);
 
   const restaurant = currentRestaurantId ? getRestaurantById(currentRestaurantId) : null;
   const distance = restaurant?.distance || 0;
@@ -166,18 +179,84 @@ export default function Cart() {
         </section>
 
         {/* Delivery Info */}
-        <section className="bg-card rounded-xl p-4 shadow-card mb-6">
+        <section className="bg-card rounded-xl p-4 shadow-card mb-6 space-y-4">
+          {/* Location Selection */}
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
               <MapPin className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1">
-              <p className="font-semibold text-foreground">Delivery to</p>
-              <p className="text-sm text-muted-foreground">{currentLocation?.name}</p>
+              <p className="font-semibold text-foreground text-sm">Delivery Location</p>
+              {isChangingLocation ? (
+                <Select
+                  value={currentLocation?.id}
+                  onValueChange={(value) => {
+                    const location = availableLocations.find(l => l.id === value);
+                    if (location) {
+                      setCurrentLocation(location);
+                      setIsChangingLocation(false);
+                    }
+                  }}
+                >
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder="Select location" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableLocations.map((location) => (
+                      <SelectItem key={location.id} value={location.id}>
+                        {location.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <p className="text-sm text-muted-foreground">{currentLocation?.name}</p>
+              )}
             </div>
-            <Button variant="outline" size="sm">
-              Change
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setIsChangingLocation(!isChangingLocation)}
+            >
+              {isChangingLocation ? 'Done' : 'Change'}
             </Button>
+          </div>
+
+          {/* Delivery Address */}
+          <div className="border-t border-border pt-4">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-full bg-secondary/10 flex items-center justify-center shrink-0">
+                <Edit2 className="h-4 w-4 text-secondary-foreground" />
+              </div>
+              <div className="flex-1">
+                <p className="font-semibold text-foreground text-sm mb-2">Delivery Address</p>
+                {isEditingAddress ? (
+                  <div className="flex gap-2">
+                    <Input
+                      value={deliveryAddress}
+                      onChange={(e) => setDeliveryAddress(e.target.value)}
+                      placeholder="Enter your full delivery address..."
+                      className="flex-1"
+                    />
+                    <Button 
+                      size="icon" 
+                      variant="ghost"
+                      onClick={() => setIsEditingAddress(false)}
+                      className="shrink-0"
+                    >
+                      <Check className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <div 
+                    onClick={() => setIsEditingAddress(true)}
+                    className="text-sm text-muted-foreground cursor-pointer hover:text-foreground transition-colors p-2 -m-2 rounded-lg hover:bg-muted"
+                  >
+                    {deliveryAddress || 'Tap to add delivery address...'}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </section>
 
