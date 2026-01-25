@@ -9,11 +9,8 @@ import { useLocation } from '@/context/LocationContext';
 const Index = () => {
   const { currentLocation } = useLocation();
 
-  // Filter restaurants by location proximity
-  const filteredRestaurants = restaurants.filter(r => {
-    if (!currentLocation) return true;
-    return r.locationId === currentLocation.id || (r.distance && r.distance <= 5);
-  });
+  // Show all restaurants - no location filtering
+  const allRestaurants = restaurants;
 
   return (
     <div className="min-h-screen bg-background">
@@ -31,16 +28,16 @@ const Index = () => {
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="font-display text-2xl font-bold text-foreground">
-                Restaurants Near You
+                All Restaurants
               </h2>
               <p className="text-muted-foreground mt-1">
-                {filteredRestaurants.length} restaurants delivering to {currentLocation?.name}
+                {allRestaurants.length} restaurants available
               </p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredRestaurants.map((restaurant, index) => (
+            {allRestaurants.map((restaurant, index) => (
               <div 
                 key={restaurant.id} 
                 className="animate-slide-up"
@@ -51,10 +48,10 @@ const Index = () => {
             ))}
           </div>
 
-          {filteredRestaurants.length === 0 && (
+          {allRestaurants.length === 0 && (
             <div className="text-center py-16">
               <p className="text-muted-foreground text-lg">
-                No restaurants available in your area yet.
+                No restaurants available yet.
               </p>
             </div>
           )}
