@@ -1,14 +1,21 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Home, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { OrderTracking } from '@/components/OrderTracking';
 import { useOrders } from '@/context/OrderContext';
 
+interface AgentLocation {
+  latitude: number;
+  longitude: number;
+  updatedAt: Date;
+}
+
 export default function OrderStatus() {
   const { orderId } = useParams<{ orderId: string }>();
   const navigate = useNavigate();
   const { getOrderById, currentOrder, updateOrderStatus } = useOrders();
+  const [agentLocation, setAgentLocation] = useState<AgentLocation | null>(null);
 
   const order = orderId ? getOrderById(orderId) : currentOrder;
 
@@ -32,6 +39,38 @@ export default function OrderStatus() {
 
     return () => clearTimeout(timeout);
   }, [order, updateOrderStatus]);
+
+  // Simulate agent location updates when order is on the way
+  useEffect(() => {
+    if (!order || order.status !== 'on_the_way') {
+      setAgentLocation(null);
+      return;
+    }
+
+    // Initial location (simulated)
+    const baseCoords = { lat: 16.1180, lng: 80.8300 }; // Restaurant area
+    const deliveryCoords = { lat: 16.1147, lng: 80.8251 }; // Delivery area
+    
+    let progress = 0;
+    
+    const interval = setInterval(() => {
+      progress += 0.1;
+      if (progress > 1) progress = 0;
+      
+      // Simulate movement from restaurant to delivery
+      const jitter = () => (Math.random() - 0.5) * 0.0005;
+      const currentLat = baseCoords.lat + (deliveryCoords.lat - baseCoords.lat) * progress + jitter();
+      const currentLng = baseCoords.lng + (deliveryCoords.lng - baseCoords.lng) * progress + jitter();
+      
+      setAgentLocation({
+        latitude: currentLat,
+        longitude: currentLng,
+        updatedAt: new Date(),
+      });
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [order?.status]);
 
   if (!order) {
     return (
@@ -87,8 +126,8 @@ export default function OrderStatus() {
           </div>
         )}
 
-        {/* Order Tracking */}
-        <OrderTracking order={order} />
+        {/* Order Tracking with Live Map */}
+        <OrderTracking order={order} agentLocation={agentLocation} />
 
         {/* Order Details */}
         <div className="bg-card rounded-xl shadow-card p-4 mt-6">

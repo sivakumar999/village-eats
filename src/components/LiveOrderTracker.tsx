@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DeliveryMap } from './DeliveryMap';
 import { 
   Package, Check, ChefHat, Bike, MapPin, Phone, 
-  RefreshCw, Wifi, WifiOff, Navigation
+  RefreshCw, Wifi, WifiOff, Navigation, Map as MapIcon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -32,6 +33,8 @@ function getStepIndex(status: OrderStatus): number {
 export function LiveOrderTracker({ orderId, onStatusChange }: LiveOrderTrackerProps) {
   const { order, isLoading, error, agentLocation, isConnected, refetch } = useOrderTracking(orderId);
   const [prevStatus, setPrevStatus] = useState<OrderStatus | null>(null);
+  const [showMap, setShowMap] = useState(true);
+  const isOnTheWay = order?.status === 'on_the_way';
 
   // Notify parent of status changes
   useEffect(() => {
@@ -122,9 +125,34 @@ export function LiveOrderTracker({ orderId, onStatusChange }: LiveOrderTrackerPr
             </Badge>
           </div>
         </div>
+        
+        {/* Map toggle button for on_the_way status */}
+        {isOnTheWay && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowMap(!showMap)}
+            className="gap-1 mt-2"
+          >
+            <MapIcon className="h-4 w-4" />
+            {showMap ? 'Hide Map' : 'Show Map'}
+          </Button>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-6">
+        {/* Live Map - Show when order is on the way */}
+        {isOnTheWay && showMap && (
+          <DeliveryMap
+            agentLocation={agentLocation}
+            deliveryAddress={order.deliveryAddress}
+            restaurantName={order.restaurantName}
+            agentName={order.agentName}
+            isLive={true}
+            className="h-[250px]"
+          />
+        )}
+
         {/* Progress Steps */}
         <div className="relative">
           {/* Progress Line */}
