@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react';
-import { Check, Clock, ChefHat, Bike, MapPin, Phone, Package } from 'lucide-react';
+import { Check, Clock, ChefHat, Bike, MapPin, Phone, Package, Map } from 'lucide-react';
 import { Order, OrderStatus } from '@/types';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { DeliveryMap } from './DeliveryMap';
+
+interface AgentLocation {
+  latitude: number;
+  longitude: number;
+  updatedAt: Date;
+}
 
 interface OrderTrackingProps {
   order: Order;
+  agentLocation?: AgentLocation | null;
   onStatusUpdate?: (status: OrderStatus) => void;
 }
 
@@ -22,9 +30,11 @@ function getStepIndex(status: OrderStatus): number {
   return ORDER_STEPS.findIndex(s => s.status === status);
 }
 
-export function OrderTracking({ order, onStatusUpdate }: OrderTrackingProps) {
+export function OrderTracking({ order, agentLocation, onStatusUpdate }: OrderTrackingProps) {
   const [elapsedTime, setElapsedTime] = useState(0);
+  const [showMap, setShowMap] = useState(true);
   const currentStepIndex = getStepIndex(order.status);
+  const isOnTheWay = order.status === 'on_the_way';
 
   // Update elapsed time
   useEffect(() => {
@@ -67,14 +77,41 @@ export function OrderTracking({ order, onStatusUpdate }: OrderTrackingProps) {
               {order.status === 'delivered' ? 'Delivered!' : 'Track Your Order'}
             </h3>
           </div>
-          <div className="flex items-center gap-2 bg-card px-3 py-1.5 rounded-full">
-            <Clock className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium">
-              {order.status === 'delivered' ? 'Completed' : `${elapsedTime} min`}
-            </span>
+          <div className="flex items-center gap-2">
+            {isOnTheWay && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMap(!showMap)}
+                className="gap-1"
+              >
+                <Map className="h-4 w-4" />
+                {showMap ? 'Hide Map' : 'Show Map'}
+              </Button>
+            )}
+            <div className="flex items-center gap-2 bg-card px-3 py-1.5 rounded-full">
+              <Clock className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium">
+                {order.status === 'delivered' ? 'Completed' : `${elapsedTime} min`}
+              </span>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Live Map - Show when order is on the way */}
+      {isOnTheWay && showMap && (
+        <div className="p-4 border-b border-border">
+          <DeliveryMap
+            agentLocation={agentLocation || null}
+            deliveryAddress={order.deliveryAddress}
+            restaurantName={order.restaurantName}
+            agentName={order.agentName}
+            isLive={true}
+            className="h-[250px]"
+          />
+        </div>
+      )}
 
       {/* Progress Steps */}
       <div className="p-6">
