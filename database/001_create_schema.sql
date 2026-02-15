@@ -1,315 +1,240 @@
 -- =========================================
 -- Village Eats - MSSQL Database Schema
--- Version: 1.0.0
+-- Complete Setup - Run this first
 -- =========================================
 
--- Create Database (run this separately if needed)
 -- CREATE DATABASE VillageEats;
 -- GO
 -- USE VillageEats;
 -- GO
 
--- =========================================
--- ENUM-like Tables / Lookup Tables
--- =========================================
-
--- User Roles
+-- Roles
 CREATE TABLE Roles (
     RoleId INT PRIMARY KEY IDENTITY(1,1),
     RoleName VARCHAR(20) NOT NULL UNIQUE,
     Description NVARCHAR(100)
 );
 
-INSERT INTO Roles (RoleName, Description) VALUES 
-    ('CUSTOMER', 'Regular customer who orders food'),
-    ('ADMIN', 'Administrator with full access'),
-    ('AGENT', 'Delivery agent/partner');
-
--- Order Status
-CREATE TABLE OrderStatuses (
-    StatusId INT PRIMARY KEY IDENTITY(1,1),
-    StatusName VARCHAR(20) NOT NULL UNIQUE,
-    Description NVARCHAR(100)
-);
-
-INSERT INTO OrderStatuses (StatusName, Description) VALUES 
-    ('placed', 'Order has been placed by customer'),
-    ('accepted', 'Order accepted by delivery agent'),
-    ('preparing', 'Restaurant is preparing the order'),
-    ('on_the_way', 'Agent is on the way to deliver'),
-    ('delivered', 'Order has been delivered'),
-    ('cancelled', 'Order has been cancelled');
-
--- Payment Modes
-CREATE TABLE PaymentModes (
-    ModeId INT PRIMARY KEY IDENTITY(1,1),
-    ModeName VARCHAR(20) NOT NULL UNIQUE,
-    Description NVARCHAR(100)
-);
-
-INSERT INTO PaymentModes (ModeName, Description) VALUES 
-    ('COD', 'Cash on Delivery'),
-    ('ONLINE', 'Online Payment (UPI/Card)');
-
--- =========================================
--- Core Tables
--- =========================================
-
--- Locations (Villages/Areas)
-CREATE TABLE Locations (
-    LocationId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    Name NVARCHAR(100) NOT NULL,
-    District NVARCHAR(100),
-    State NVARCHAR(100) DEFAULT 'Andhra Pradesh',
-    PinCode VARCHAR(10),
-    Latitude DECIMAL(10, 8),
-    Longitude DECIMAL(11, 8),
-    IsActive BIT DEFAULT 1,
-    CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
-    UpdatedAt DATETIME2 DEFAULT GETUTCDATE()
-);
-
--- Distance between locations (for delivery calculations)
-CREATE TABLE LocationDistances (
-    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    FromLocationId UNIQUEIDENTIFIER NOT NULL REFERENCES Locations(LocationId),
-    ToLocationId UNIQUEIDENTIFIER NOT NULL REFERENCES Locations(LocationId),
-    DistanceKm DECIMAL(5, 2) NOT NULL,
-    CONSTRAINT UQ_LocationDistance UNIQUE (FromLocationId, ToLocationId)
-);
-
--- Users (All roles use this table)
+-- Users
 CREATE TABLE Users (
     UserId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
     Email VARCHAR(255) NOT NULL UNIQUE,
     PasswordHash VARCHAR(255) NOT NULL,
     Name NVARCHAR(100) NOT NULL,
     Phone VARCHAR(15),
-    LocationId UNIQUEIDENTIFIER REFERENCES Locations(LocationId),
     Address NVARCHAR(500),
+    LocationId UNIQUEIDENTIFIER NULL,
     IsActive BIT DEFAULT 1,
     CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
     UpdatedAt DATETIME2 DEFAULT GETUTCDATE()
 );
 
--- User Roles Mapping (Many-to-Many)
+-- User Roles
 CREATE TABLE UserRoles (
-    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    UserId UNIQUEIDENTIFIER NOT NULL REFERENCES Users(UserId) ON DELETE CASCADE,
-    RoleId INT NOT NULL REFERENCES Roles(RoleId),
+    UserId UNIQUEIDENTIFIER NOT NULL,
+    RoleId INT NOT NULL,
     AssignedAt DATETIME2 DEFAULT GETUTCDATE(),
-    CONSTRAINT UQ_UserRole UNIQUE (UserId, RoleId)
+    PRIMARY KEY (UserId, RoleId),
+    FOREIGN KEY (UserId) REFERENCES Users(UserId),
+    FOREIGN KEY (RoleId) REFERENCES Roles(RoleId)
 );
 
--- Agents (Extended info for delivery partners)
-CREATE TABLE Agents (
-    AgentId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    UserId UNIQUEIDENTIFIER NOT NULL UNIQUE REFERENCES Users(UserId) ON DELETE CASCADE,
-    VehicleType VARCHAR(20) DEFAULT 'BIKE', -- BIKE, SCOOTER, CYCLE
-    LicenseNumber VARCHAR(50),
-    AssignedLocationId UNIQUEIDENTIFIER REFERENCES Locations(LocationId),
-    IsAvailable BIT DEFAULT 1,
-    CurrentLatitude DECIMAL(10, 8),
-    CurrentLongitude DECIMAL(11, 8),
-    LastActiveAt DATETIME2,
-    TotalDeliveries INT DEFAULT 0,
-    Rating DECIMAL(3, 2) DEFAULT 5.00,
+-- Locations (Villages)
+CREATE TABLE Locations (
+    LocationId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    Name NVARCHAR(100) NOT NULL,
+    District NVARCHAR(100),
+    PinCode VARCHAR(10),
+    Latitude DECIMAL(10,7),
+    Longitude DECIMAL(10,7),
+    IsActive BIT DEFAULT 1,
     CreatedAt DATETIME2 DEFAULT GETUTCDATE()
+);
+
+-- Location Distances
+CREATE TABLE LocationDistances (
+    FromLocationId UNIQUEIDENTIFIER NOT NULL,
+    ToLocationId UNIQUEIDENTIFIER NOT NULL,
+    DistanceKm DECIMAL(5,2) NOT NULL,
+    PRIMARY KEY (FromLocationId, ToLocationId),
+    FOREIGN KEY (FromLocationId) REFERENCES Locations(LocationId),
+    FOREIGN KEY (ToLocationId) REFERENCES Locations(LocationId)
 );
 
 -- Restaurants
 CREATE TABLE Restaurants (
     RestaurantId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    Name NVARCHAR(200) NOT NULL,
+    Name NVARCHAR(100) NOT NULL,
     Description NVARCHAR(500),
-    ImagePath VARCHAR(255),
-    LocationId UNIQUEIDENTIFIER NOT NULL REFERENCES Locations(LocationId),
-    Address NVARCHAR(500),
-    Phone VARCHAR(15),
-    Email VARCHAR(255),
-    CuisineTypes NVARCHAR(255), -- Comma-separated: "Indian,Chinese,South Indian"
-    Rating DECIMAL(3, 2) DEFAULT 4.00,
+    ImageUrl VARCHAR(500),
+    LocationId UNIQUEIDENTIFIER NOT NULL,
+    Rating DECIMAL(2,1) DEFAULT 0,
     TotalRatings INT DEFAULT 0,
-    PriceRange VARCHAR(10) DEFAULT '₹₹', -- ₹, ₹₹, ₹₹₹
-    OpeningTime TIME DEFAULT '09:00:00',
-    ClosingTime TIME DEFAULT '22:00:00',
+    DeliveryTime VARCHAR(20) DEFAULT '30-40 min',
+    PriceRange VARCHAR(50),
     IsOpen BIT DEFAULT 1,
-    IsActive BIT DEFAULT 1,
+    OpeningTime TIME,
+    ClosingTime TIME,
     CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
-    UpdatedAt DATETIME2 DEFAULT GETUTCDATE()
+    UpdatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    FOREIGN KEY (LocationId) REFERENCES Locations(LocationId)
 );
 
 -- Food Categories
 CREATE TABLE FoodCategories (
-    CategoryId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    Name NVARCHAR(100) NOT NULL,
-    Description NVARCHAR(255),
-    DisplayOrder INT DEFAULT 0,
-    IsActive BIT DEFAULT 1
+    CategoryId INT PRIMARY KEY IDENTITY(1,1),
+    Name NVARCHAR(50) NOT NULL,
+    Description NVARCHAR(200),
+    DisplayOrder INT DEFAULT 0
 );
 
-INSERT INTO FoodCategories (Name, Description, DisplayOrder) VALUES
-    ('Starters', 'Appetizers and snacks', 1),
-    ('Main Course', 'Main dishes', 2),
-    ('Biryanis', 'Rice specialties', 3),
-    ('Breads', 'Naan, Roti, Paratha', 4),
-    ('Beverages', 'Drinks and refreshments', 5),
-    ('Desserts', 'Sweet dishes', 6);
-
--- Food Items / Menu Items
+-- Food Items
 CREATE TABLE FoodItems (
     FoodItemId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    RestaurantId UNIQUEIDENTIFIER NOT NULL REFERENCES Restaurants(RestaurantId) ON DELETE CASCADE,
-    CategoryId UNIQUEIDENTIFIER REFERENCES FoodCategories(CategoryId),
-    Name NVARCHAR(200) NOT NULL,
+    RestaurantId UNIQUEIDENTIFIER NOT NULL,
+    CategoryId INT,
+    Name NVARCHAR(100) NOT NULL,
     Description NVARCHAR(500),
-    Price DECIMAL(10, 2) NOT NULL,
-    ImagePath VARCHAR(255),
-    IsVeg BIT DEFAULT 1,
+    Price DECIMAL(10,2) NOT NULL,
+    ImageUrl VARCHAR(500),
+    IsVeg BIT DEFAULT 0,
     IsSpicy BIT DEFAULT 0,
     IsBestseller BIT DEFAULT 0,
     IsAvailable BIT DEFAULT 1,
-    PreparationTime INT DEFAULT 15, -- in minutes
+    PreparationTime INT DEFAULT 15,
     CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
-    UpdatedAt DATETIME2 DEFAULT GETUTCDATE()
+    UpdatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    FOREIGN KEY (RestaurantId) REFERENCES Restaurants(RestaurantId),
+    FOREIGN KEY (CategoryId) REFERENCES FoodCategories(CategoryId)
 );
 
--- =========================================
--- Order & Payment Tables
--- =========================================
+-- Payment Modes
+CREATE TABLE PaymentModes (
+    PaymentModeId INT PRIMARY KEY IDENTITY(1,1),
+    ModeName VARCHAR(20) NOT NULL,
+    IsActive BIT DEFAULT 1
+);
+
+-- Order Statuses
+CREATE TABLE OrderStatuses (
+    StatusId INT PRIMARY KEY IDENTITY(1,1),
+    StatusName VARCHAR(20) NOT NULL,
+    Description NVARCHAR(100),
+    DisplayOrder INT DEFAULT 0
+);
 
 -- Orders
 CREATE TABLE Orders (
     OrderId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
     OrderNumber VARCHAR(20) NOT NULL UNIQUE,
-    CustomerId UNIQUEIDENTIFIER NOT NULL REFERENCES Users(UserId),
-    RestaurantId UNIQUEIDENTIFIER NOT NULL REFERENCES Restaurants(RestaurantId),
-    AgentId UNIQUEIDENTIFIER REFERENCES Agents(AgentId),
-    StatusId INT NOT NULL REFERENCES OrderStatuses(StatusId) DEFAULT 1,
-    
-    -- Delivery Details
-    DeliveryLocationId UNIQUEIDENTIFIER REFERENCES Locations(LocationId),
-    DeliveryAddress NVARCHAR(500),
-    DeliveryDistance DECIMAL(5, 2), -- in km
+    CustomerId UNIQUEIDENTIFIER NOT NULL,
+    RestaurantId UNIQUEIDENTIFIER NOT NULL,
+    AgentId UNIQUEIDENTIFIER NULL,
+    StatusId INT NOT NULL DEFAULT 1,
+    DeliveryLocationId UNIQUEIDENTIFIER NOT NULL,
+    DeliveryAddress NVARCHAR(500) NOT NULL,
+    DeliveryDistance DECIMAL(5,2) DEFAULT 0,
     IsSameVillage BIT DEFAULT 1,
-    
-    -- Pricing
-    ItemTotal DECIMAL(10, 2) NOT NULL,
-    DeliveryBaseFee DECIMAL(10, 2) NOT NULL,
-    DeliveryDistanceFee DECIMAL(10, 2) DEFAULT 0,
-    MultiItemDiscount DECIMAL(10, 2) DEFAULT 0,
-    TotalAmount DECIMAL(10, 2) NOT NULL,
-    
-    -- Payment
-    PaymentModeId INT REFERENCES PaymentModes(ModeId),
-    PaymentStatus VARCHAR(20) DEFAULT 'pending', -- pending, completed, failed
-    
-    -- Timestamps
+    ItemTotal DECIMAL(10,2) NOT NULL,
+    DeliveryBaseFee DECIMAL(10,2) DEFAULT 20,
+    DeliveryDistanceFee DECIMAL(10,2) DEFAULT 0,
+    MultiItemDiscount DECIMAL(10,2) DEFAULT 0,
+    TotalAmount DECIMAL(10,2) NOT NULL,
+    PaymentModeId INT NOT NULL,
+    PaymentStatus VARCHAR(20) DEFAULT 'pending',
+    CustomerNotes NVARCHAR(500),
     PlacedAt DATETIME2 DEFAULT GETUTCDATE(),
     AcceptedAt DATETIME2,
     PreparedAt DATETIME2,
     PickedUpAt DATETIME2,
     DeliveredAt DATETIME2,
     CancelledAt DATETIME2,
-    CancelReason NVARCHAR(255),
-    
-    -- Notes
-    CustomerNotes NVARCHAR(500),
-    RestaurantNotes NVARCHAR(500),
-    
     CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
-    UpdatedAt DATETIME2 DEFAULT GETUTCDATE()
+    UpdatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    FOREIGN KEY (CustomerId) REFERENCES Users(UserId),
+    FOREIGN KEY (RestaurantId) REFERENCES Restaurants(RestaurantId),
+    FOREIGN KEY (AgentId) REFERENCES Users(UserId),
+    FOREIGN KEY (StatusId) REFERENCES OrderStatuses(StatusId),
+    FOREIGN KEY (DeliveryLocationId) REFERENCES Locations(LocationId),
+    FOREIGN KEY (PaymentModeId) REFERENCES PaymentModes(PaymentModeId)
 );
 
 -- Order Items
 CREATE TABLE OrderItems (
     OrderItemId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    OrderId UNIQUEIDENTIFIER NOT NULL REFERENCES Orders(OrderId) ON DELETE CASCADE,
-    FoodItemId UNIQUEIDENTIFIER NOT NULL REFERENCES FoodItems(FoodItemId),
+    OrderId UNIQUEIDENTIFIER NOT NULL,
+    FoodItemId UNIQUEIDENTIFIER NOT NULL,
     Quantity INT NOT NULL DEFAULT 1,
-    UnitPrice DECIMAL(10, 2) NOT NULL,
-    TotalPrice DECIMAL(10, 2) NOT NULL,
-    Notes NVARCHAR(255)
+    UnitPrice DECIMAL(10,2) NOT NULL,
+    TotalPrice DECIMAL(10,2) NOT NULL,
+    FOREIGN KEY (OrderId) REFERENCES Orders(OrderId),
+    FOREIGN KEY (FoodItemId) REFERENCES FoodItems(FoodItemId)
 );
 
--- Payments
-CREATE TABLE Payments (
-    PaymentId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    OrderId UNIQUEIDENTIFIER NOT NULL REFERENCES Orders(OrderId),
-    Amount DECIMAL(10, 2) NOT NULL,
-    PaymentModeId INT NOT NULL REFERENCES PaymentModes(ModeId),
-    TransactionId VARCHAR(100),
-    Status VARCHAR(20) DEFAULT 'pending', -- pending, success, failed
-    GatewayResponse NVARCHAR(MAX), -- JSON response from payment gateway
-    PaidAt DATETIME2,
-    CreatedAt DATETIME2 DEFAULT GETUTCDATE()
+-- Agents
+CREATE TABLE Agents (
+    AgentId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    UserId UNIQUEIDENTIFIER NOT NULL UNIQUE,
+    VehicleType VARCHAR(20) DEFAULT 'BIKE',
+    LicenseNumber VARCHAR(50),
+    AssignedLocationId UNIQUEIDENTIFIER NOT NULL,
+    IsAvailable BIT DEFAULT 1,
+    CurrentLatitude DECIMAL(10,7),
+    CurrentLongitude DECIMAL(10,7),
+    TotalDeliveries INT DEFAULT 0,
+    Rating DECIMAL(2,1) DEFAULT 5.0,
+    LastActiveAt DATETIME2,
+    CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    FOREIGN KEY (UserId) REFERENCES Users(UserId),
+    FOREIGN KEY (AssignedLocationId) REFERENCES Locations(LocationId)
 );
 
--- =========================================
--- Agent Earnings & Assignments
--- =========================================
-
--- Agent Earnings (per delivery)
-CREATE TABLE AgentEarnings (
-    EarningId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    AgentId UNIQUEIDENTIFIER NOT NULL REFERENCES Agents(AgentId),
-    OrderId UNIQUEIDENTIFIER NOT NULL REFERENCES Orders(OrderId),
-    BaseEarning DECIMAL(10, 2) NOT NULL,
-    DistanceBonus DECIMAL(10, 2) DEFAULT 0,
-    PlatformFee DECIMAL(10, 2) DEFAULT 0, -- Deducted by platform
-    TotalEarning DECIMAL(10, 2) NOT NULL,
-    IsPaid BIT DEFAULT 0,
-    PaidAt DATETIME2,
-    CreatedAt DATETIME2 DEFAULT GETUTCDATE()
-);
-
--- Order Assignment Log (tracking which agents see/accept orders)
+-- Order Assignments (audit trail)
 CREATE TABLE OrderAssignments (
     AssignmentId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    OrderId UNIQUEIDENTIFIER NOT NULL REFERENCES Orders(OrderId),
-    AgentId UNIQUEIDENTIFIER NOT NULL REFERENCES Agents(AgentId),
-    Action VARCHAR(20) NOT NULL, -- offered, viewed, accepted, rejected, expired
-    ActionAt DATETIME2 DEFAULT GETUTCDATE(),
-    Notes NVARCHAR(255)
+    OrderId UNIQUEIDENTIFIER NOT NULL,
+    AgentId UNIQUEIDENTIFIER NOT NULL,
+    Action VARCHAR(20) NOT NULL,
+    Reason NVARCHAR(500),
+    CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    FOREIGN KEY (OrderId) REFERENCES Orders(OrderId),
+    FOREIGN KEY (AgentId) REFERENCES Users(UserId)
 );
 
--- =========================================
--- Configuration Table (Admin-editable settings)
--- =========================================
+-- Agent Earnings
+CREATE TABLE AgentEarnings (
+    EarningId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
+    AgentId UNIQUEIDENTIFIER NOT NULL,
+    OrderId UNIQUEIDENTIFIER NOT NULL,
+    BaseEarning DECIMAL(10,2) NOT NULL,
+    DistanceBonus DECIMAL(10,2) DEFAULT 0,
+    PlatformFee DECIMAL(10,2) DEFAULT 0,
+    TotalEarning DECIMAL(10,2) NOT NULL,
+    IsPaid BIT DEFAULT 0,
+    PaidAt DATETIME2,
+    CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    FOREIGN KEY (AgentId) REFERENCES Agents(AgentId),
+    FOREIGN KEY (OrderId) REFERENCES Orders(OrderId)
+);
 
+-- App Settings
 CREATE TABLE AppSettings (
-    SettingId UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    SettingKey VARCHAR(100) NOT NULL UNIQUE,
-    SettingValue NVARCHAR(255) NOT NULL,
-    Description NVARCHAR(500),
-    UpdatedAt DATETIME2 DEFAULT GETUTCDATE(),
-    UpdatedBy UNIQUEIDENTIFIER REFERENCES Users(UserId)
+    SettingKey VARCHAR(50) PRIMARY KEY,
+    SettingValue VARCHAR(255) NOT NULL,
+    Description NVARCHAR(200)
 );
 
--- Default Settings
-INSERT INTO AppSettings (SettingKey, SettingValue, Description) VALUES
-    ('DELIVERY_BASE_FEE', '20', 'Base delivery fee in rupees'),
-    ('DELIVERY_PER_KM_RATE', '9', 'Per kilometer charge for inter-village delivery'),
-    ('MULTI_ITEM_DISCOUNT', '10', 'Discount for 2+ items from same restaurant'),
-    ('AGENT_BASE_EARNING', '20', 'Agent earning for same-village single order'),
-    ('AGENT_MULTI_ITEM_EARNING', '25', 'Agent earning for multi-item delivery'),
-    ('PLATFORM_COMMISSION', '5', 'Platform commission from multi-item delivery'),
-    ('JWT_EXPIRY_HOURS', '24', 'JWT token expiry time in hours');
-
--- =========================================
--- Indexes for Performance
--- =========================================
-
-CREATE INDEX IX_Users_Email ON Users(Email);
-CREATE INDEX IX_Users_LocationId ON Users(LocationId);
-CREATE INDEX IX_Restaurants_LocationId ON Restaurants(LocationId);
-CREATE INDEX IX_FoodItems_RestaurantId ON FoodItems(RestaurantId);
+-- Indexes
 CREATE INDEX IX_Orders_CustomerId ON Orders(CustomerId);
-CREATE INDEX IX_Orders_RestaurantId ON Orders(RestaurantId);
 CREATE INDEX IX_Orders_AgentId ON Orders(AgentId);
+CREATE INDEX IX_Orders_RestaurantId ON Orders(RestaurantId);
 CREATE INDEX IX_Orders_StatusId ON Orders(StatusId);
-CREATE INDEX IX_Orders_PlacedAt ON Orders(PlacedAt);
-CREATE INDEX IX_Agents_AssignedLocationId ON Agents(AssignedLocationId);
+CREATE INDEX IX_Orders_PlacedAt ON Orders(PlacedAt DESC);
+CREATE INDEX IX_OrderItems_OrderId ON OrderItems(OrderId);
+CREATE INDEX IX_FoodItems_RestaurantId ON FoodItems(RestaurantId);
 CREATE INDEX IX_AgentEarnings_AgentId ON AgentEarnings(AgentId);
+CREATE INDEX IX_Agents_AssignedLocationId ON Agents(AssignedLocationId);
+CREATE INDEX IX_Users_Email ON Users(Email);
 
-PRINT 'Village Eats database schema created successfully!';
+PRINT 'Schema created successfully!';
+GO

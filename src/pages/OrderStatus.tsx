@@ -40,31 +40,24 @@ export default function OrderStatus() {
     return () => clearTimeout(timeout);
   }, [order, updateOrderStatus]);
 
-  // Simulate agent location updates when order is on the way
+  // Simulate agent location
   useEffect(() => {
     if (!order || order.status !== 'on_the_way') {
       setAgentLocation(null);
       return;
     }
 
-    // Initial location (simulated)
-    const baseCoords = { lat: 16.1180, lng: 80.8300 }; // Restaurant area
-    const deliveryCoords = { lat: 16.1147, lng: 80.8251 }; // Delivery area
-    
+    const baseCoords = { lat: 16.1180, lng: 80.8300 };
+    const deliveryCoords = { lat: 16.1147, lng: 80.8251 };
     let progress = 0;
-    
+
     const interval = setInterval(() => {
       progress += 0.1;
       if (progress > 1) progress = 0;
-      
-      // Simulate movement from restaurant to delivery
       const jitter = () => (Math.random() - 0.5) * 0.0005;
-      const currentLat = baseCoords.lat + (deliveryCoords.lat - baseCoords.lat) * progress + jitter();
-      const currentLng = baseCoords.lng + (deliveryCoords.lng - baseCoords.lng) * progress + jitter();
-      
       setAgentLocation({
-        latitude: currentLat,
-        longitude: currentLng,
+        latitude: baseCoords.lat + (deliveryCoords.lat - baseCoords.lat) * progress + jitter(),
+        longitude: baseCoords.lng + (deliveryCoords.lng - baseCoords.lng) * progress + jitter(),
         updatedAt: new Date(),
       });
     }, 3000);
@@ -77,10 +70,7 @@ export default function OrderStatus() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-foreground mb-4">Order not found</h2>
-          <p className="text-muted-foreground mb-6">
-            We couldn't find the order you're looking for.
-          </p>
-          <Link to="/">
+          <Link to="/home">
             <Button variant="hero">
               <Home className="h-4 w-4 mr-2" />
               Back to Home
@@ -93,14 +83,10 @@ export default function OrderStatus() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-50 bg-card border-b border-border">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center gap-4">
-            <button 
-              onClick={() => navigate(-1)}
-              className="p-2 rounded-full hover:bg-muted transition-colors"
-            >
+            <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-muted transition-colors">
               <ArrowLeft className="h-5 w-5" />
             </button>
             <h1 className="font-display text-xl font-bold">Order Status</h1>
@@ -109,7 +95,6 @@ export default function OrderStatus() {
       </header>
 
       <main className="container mx-auto px-4 py-6 max-w-lg">
-        {/* Order Success Banner (for just placed orders) */}
         {order.status === 'placed' && (
           <div className="bg-gradient-to-r from-accent to-primary/80 rounded-xl p-6 mb-6 text-center animate-fade-in">
             <div className="h-16 w-16 rounded-full bg-white/20 flex items-center justify-center mx-auto mb-4">
@@ -117,32 +102,32 @@ export default function OrderStatus() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h2 className="font-display text-2xl font-bold text-white mb-2">
-              Order Placed!
-            </h2>
-            <p className="text-white/80">
-              Your order has been sent to {order.restaurantName}
+            <h2 className="font-display text-2xl font-bold text-white mb-2">Order Placed!</h2>
+            <p className="text-white/80">Your order has been sent to {order.restaurantName}</p>
+          </div>
+        )}
+
+        {/* Agent accepted message */}
+        {order.agentName && order.status !== 'placed' && (
+          <div className="bg-primary/10 border border-primary/30 rounded-xl p-4 mb-4 text-center">
+            <p className="text-sm text-foreground">
+              Your order is accepted by our delivery boy <strong>{order.agentName}</strong> 🚴
             </p>
           </div>
         )}
 
-        {/* Order Tracking with Live Map */}
         <OrderTracking order={order} agentLocation={agentLocation} />
 
         {/* Order Details */}
         <div className="bg-card rounded-xl shadow-card p-4 mt-6">
           <h3 className="font-display font-bold text-foreground mb-4">Order Details</h3>
-          
           <div className="space-y-3">
             {order.items.map(item => (
               <div key={item.id} className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {item.quantity}x {item.foodItemName}
-                </span>
+                <span className="text-muted-foreground">{item.quantity}x {item.foodItemName}</span>
                 <span className="text-foreground">₹{item.totalPrice}</span>
               </div>
             ))}
-            
             <div className="border-t border-border pt-3 space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">Item Total</span>
@@ -160,18 +145,14 @@ export default function OrderStatus() {
           </div>
         </div>
 
-        {/* Delivery Address */}
         <div className="bg-card rounded-xl shadow-card p-4 mt-4">
           <h3 className="font-display font-bold text-foreground mb-2">Delivery Address</h3>
           <p className="text-muted-foreground text-sm">{order.deliveryAddress}</p>
           {order.customerNotes && (
-            <p className="text-sm text-muted-foreground mt-2 italic">
-              Note: {order.customerNotes}
-            </p>
+            <p className="text-sm text-muted-foreground mt-2 italic">Note: {order.customerNotes}</p>
           )}
         </div>
 
-        {/* Payment Info */}
         <div className="bg-card rounded-xl shadow-card p-4 mt-4">
           <div className="flex items-center justify-between">
             <div>
@@ -179,27 +160,23 @@ export default function OrderStatus() {
               <p className="text-sm text-muted-foreground">{order.paymentMode === 'COD' ? 'Cash on Delivery' : 'Paid Online'}</p>
             </div>
             <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-              order.paymentStatus === 'completed' 
-                ? 'bg-accent/20 text-accent-foreground' 
-                : 'bg-warning/20 text-warning-foreground'
+              order.paymentStatus === 'completed' ? 'bg-accent/20 text-accent-foreground' : 'bg-warning/20 text-warning-foreground'
             }`}>
               {order.paymentStatus === 'completed' ? 'Paid' : 'Pending'}
             </span>
           </div>
         </div>
 
-        {/* Actions */}
         <div className="mt-8 space-y-3">
           {order.status === 'delivered' && (
-            <Link to="/" className="block">
+            <Link to="/home" className="block">
               <Button variant="hero" size="lg" className="w-full gap-2">
                 <RotateCcw className="h-4 w-4" />
                 Order Again
               </Button>
             </Link>
           )}
-          
-          <Link to="/" className="block">
+          <Link to="/home" className="block">
             <Button variant="outline" size="lg" className="w-full gap-2">
               <Home className="h-4 w-4" />
               Back to Home

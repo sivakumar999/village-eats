@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, ReactNode } from 'react';
 import { Order, OrderStatus, CartItem } from '@/types';
 import { useLocation } from '@/context/LocationContext';
+import { useAuth } from '@/context/AuthContext';
 
 interface OrderContextType {
   orders: Order[];
@@ -9,21 +10,21 @@ interface OrderContextType {
   getOrderById: (orderId: string) => Order | undefined;
   updateOrderStatus: (orderId: string, status: OrderStatus) => void;
   assignAgent: (orderId: string, agentId: string, agentName: string) => void;
+  unassignAgent: (orderId: string) => void;
   getOrdersByStatus: (status: OrderStatus) => Order[];
   getPendingOrdersForAgent: (locationId: string) => Order[];
 }
 
 const OrderContext = createContext<OrderContextType | undefined>(undefined);
 
-// Generate unique order number
 function generateOrderNumber(): string {
   const prefix = 'VE';
-  const timestamp = Date.now().toString(36).toUpperCase();
-  const random = Math.random().toString(36).substring(2, 5).toUpperCase();
-  return `${prefix}${timestamp}${random}`;
+  const date = new Date();
+  const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+  const seq = String(Math.floor(Math.random() * 9999) + 1).padStart(4, '0');
+  return `${prefix}${dateStr}${seq}`;
 }
 
-// Generate unique ID
 function generateId(): string {
   return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
 }
@@ -33,23 +34,6 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const [currentOrder, setCurrentOrder] = useState<Order | null>(null);
   const { currentLocation } = useLocation();
 
-  // Simulate real-time updates (polling simulation)
-  useEffect(() => {
-    if (!currentOrder) return;
-
-    const interval = setInterval(() => {
-      setOrders(prev => {
-        const updated = prev.find(o => o.id === currentOrder.id);
-        if (updated && updated.status !== currentOrder.status) {
-          setCurrentOrder(updated);
-        }
-        return prev;
-      });
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [currentOrder]);
-
   const placeOrder = useCallback((
     items: CartItem[],
     paymentMode: 'COD' | 'ONLINE',
@@ -58,14 +42,12 @@ export function OrderProvider({ children }: { children: ReactNode }) {
     const restaurantId = items[0]?.restaurantId || '';
     const restaurantName = items[0]?.restaurantName || '';
     
-    // Calculate totals
     const itemTotal = items.reduce((sum, item) => sum + (item.foodItem.price * item.quantity), 0);
     const totalItems = items.reduce((sum, item) => sum + item.quantity, 0);
     
-    // Delivery fee calculation (same village = no distance fee)
-    const isSameVillage = true; // Simplified - in real app check against restaurant location
+    const isSameVillage = true;
     const deliveryBaseFee = 20;
-    const deliveryDistanceFee = isSameVillage ? 0 : 0;
+    const deliveryDistanceFee = 0;
     const multiItemDiscount = totalItems >= 2 ? 10 : 0;
     
     const newOrder: Order = {
@@ -80,8 +62,8 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         totalPrice: item.foodItem.price * item.quantity,
       })),
       status: 'placed',
-      customerId: 'guest-user', // In real app, get from auth
-      customerName: 'Guest Customer',
+      customerId: 'cust-001',
+      customerName: 'Customer',
       restaurantId,
       restaurantName,
       deliveryLocationId: currentLocation?.id || '',
@@ -100,7 +82,6 @@ export function OrderProvider({ children }: { children: ReactNode }) {
 
     setOrders(prev => [newOrder, ...prev]);
     setCurrentOrder(newOrder);
-    
     return newOrder;
   }, [currentLocation]);
 
@@ -114,30 +95,23 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       
       const updates: Partial<Order> = { status };
       
+      // If resetting to placed, also remove agent
+      if (status === 'placed') {
+        updates.agentId = undefined;
+        updates.agentName = undefined;
+        updates.acceptedAt = undefined;
+      }
+      
       switch (status) {
-        case 'accepted':
-          updates.acceptedAt = new Date();
-          break;
-        case 'preparing':
-          updates.preparedAt = new Date();
-          break;
-        case 'on_the_way':
-          updates.pickedUpAt = new Date();
-          break;
-        case 'delivered':
-          updates.deliveredAt = new Date();
-          break;
-        case 'cancelled':
-          updates.cancelledAt = new Date();
-          break;
+        case 'accepted': updates.acceptedAt = new Date(); break;
+        case 'preparing': updates.preparedAt = new Date(); break;
+        case 'on_the_way': updates.pickedUpAt = new Date(); break;
+        case 'delivered': updates.deliveredAt = new Date(); break;
+        case 'cancelled': updates.cancelledAt = new Date(); break;
       }
       
       const updatedOrder = { ...order, ...updates };
-      
-      if (currentOrder?.id === orderId) {
-        setCurrentOrder(updatedOrder);
-      }
-      
+      if (currentOrder?.id === orderId) setCurrentOrder(updatedOrder);
       return updatedOrder;
     }));
   }, [currentOrder]);
@@ -145,7 +119,6 @@ export function OrderProvider({ children }: { children: ReactNode }) {
   const assignAgent = useCallback((orderId: string, agentId: string, agentName: string) => {
     setOrders(prev => prev.map(order => {
       if (order.id !== orderId) return order;
-      
       const updatedOrder = {
         ...order,
         agentId,
@@ -153,25 +126,21 @@ export function OrderProvider({ children }: { children: ReactNode }) {
         status: 'accepted' as OrderStatus,
         acceptedAt: new Date(),
       };
-      
-      if (currentOrder?.id === orderId) {
-        setCurrentOrder(updatedOrder);
-      }
-      
+      if (currentOrder?.id === orderId) setCurrentOrder(updatedOrder);
       return updatedOrder;
     }));
   }, [currentOrder]);
+
+  const unassignAgent = useCallback((orderId: string) => {
+    updateOrderStatus(orderId, 'placed');
+  }, [updateOrderStatus]);
 
   const getOrdersByStatus = useCallback((status: OrderStatus) => {
     return orders.filter(o => o.status === status);
   }, [orders]);
 
   const getPendingOrdersForAgent = useCallback((locationId: string) => {
-    return orders.filter(o => 
-      o.status === 'placed' && 
-      !o.agentId &&
-      o.deliveryLocationId === locationId
-    );
+    return orders.filter(o => o.status === 'placed' && !o.agentId);
   }, [orders]);
 
   return (
@@ -182,6 +151,7 @@ export function OrderProvider({ children }: { children: ReactNode }) {
       getOrderById,
       updateOrderStatus,
       assignAgent,
+      unassignAgent,
       getOrdersByStatus,
       getPendingOrdersForAgent,
     }}>

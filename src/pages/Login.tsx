@@ -35,6 +35,17 @@ export default function Login() {
     }
   };
 
+  const fillDemo = (type: 'customer' | 'agent' | 'admin') => {
+    const creds = {
+      customer: { email: 'customer@villageeats.com', password: 'password' },
+      agent: { email: 'agent@villageeats.com', password: 'password' },
+      admin: { email: 'admin@villageeats.com', password: 'password' },
+    };
+    setEmail(creds[type].email);
+    setPassword(creds[type].password);
+    setError(null);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-xl border-0 bg-card/80 backdrop-blur-sm">
@@ -77,15 +88,7 @@ export default function Login() {
             </div>
 
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <Link 
-                  to="/forgot-password" 
-                  className="text-xs text-primary hover:underline"
-                >
-                  Forgot password?
-                </Link>
-              </div>
+              <Label htmlFor="password">Password</Label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -129,11 +132,22 @@ export default function Login() {
               </Link>
             </p>
 
-            {/* Demo credentials hint */}
-            <div className="w-full p-3 bg-muted/50 rounded-lg">
-              <p className="text-xs text-center text-muted-foreground">
-                <span className="font-medium">Demo:</span> Use any email/password to test locally
+            {/* Demo credentials */}
+            <div className="w-full p-3 bg-muted/50 rounded-lg space-y-2">
+              <p className="text-xs text-center text-muted-foreground font-medium">
+                Quick Demo Login:
               </p>
+              <div className="flex gap-2 justify-center">
+                <Button type="button" variant="outline" size="sm" onClick={() => fillDemo('customer')} className="text-xs">
+                  Customer
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => fillDemo('agent')} className="text-xs">
+                  Agent
+                </Button>
+                <Button type="button" variant="outline" size="sm" onClick={() => fillDemo('admin')} className="text-xs">
+                  Admin
+                </Button>
+              </div>
             </div>
           </CardFooter>
         </form>

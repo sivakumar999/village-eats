@@ -1,7 +1,7 @@
 import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, Star, Clock, MapPin, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Header } from '@/components/Header';
+import { CustomerHeader } from '@/components/CustomerHeader';
 import { FoodItemCard } from '@/components/FoodItemCard';
 import { CartSummary } from '@/components/CartSummary';
 import { getRestaurantById, getFoodItemsByRestaurant } from '@/data/mockData';
@@ -16,7 +16,7 @@ export default function RestaurantDetail() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-2xl font-bold text-foreground mb-4">Restaurant not found</h2>
-          <Link to="/">
+          <Link to="/home">
             <Button>Back to Home</Button>
           </Link>
         </div>
@@ -33,7 +33,7 @@ export default function RestaurantDetail() {
 
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <CustomerHeader />
       
       {/* Restaurant Header */}
       <div className="relative h-48 md:h-64 overflow-hidden">
@@ -46,20 +46,11 @@ export default function RestaurantDetail() {
         
         {/* Back Button */}
         <Link 
-          to="/"
+          to="/home"
           className="absolute top-4 left-4 bg-card/90 backdrop-blur-sm rounded-full p-2 shadow-md hover:bg-card transition-colors"
         >
           <ArrowLeft className="h-5 w-5 text-foreground" />
         </Link>
-        
-        {/* Share Button */}
-        <Button 
-          variant="ghost" 
-          size="icon"
-          className="absolute top-4 right-4 bg-card/90 backdrop-blur-sm rounded-full shadow-md hover:bg-card"
-        >
-          <Share2 className="h-5 w-5" />
-        </Button>
       </div>
 
       {/* Restaurant Info */}
@@ -75,14 +66,12 @@ export default function RestaurantDetail() {
               </p>
             </div>
             
-            {/* Rating Badge */}
             <div className="flex items-center gap-1.5 bg-accent px-3 py-1.5 rounded-lg">
               <Star className="h-4 w-4 text-accent-foreground fill-accent-foreground" />
               <span className="font-bold text-accent-foreground">{restaurant.rating}</span>
             </div>
           </div>
 
-          {/* Meta Info */}
           <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-border">
             <div className="flex items-center gap-1.5 text-muted-foreground">
               <Clock className="h-4 w-4" />
@@ -123,8 +112,6 @@ export default function RestaurantDetail() {
       </main>
 
       <CartSummary distance={restaurant.distance} />
-      
-      {/* Footer Spacer */}
       <div className="h-24" />
     </div>
   );
